@@ -1,3 +1,4 @@
+from glob import glob
 
 try:
     from setuptools import setup
@@ -12,6 +13,7 @@ config = {
     'author_email' : 'brandon@sandrowicz.org',
     'version'      : '0.1',
     'packages'     : [],
+    'scripts'      : glob('scripts/*'),
     'name'         : 'bttools',
     'test_suite'   : '',
 }

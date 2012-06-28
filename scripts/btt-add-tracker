@@ -1,0 +1,77 @@
+#!/usr/bin/env python
+
+import argparse
+import os
+import sys
+
+import bencode
+
+class BitTorrentFile(object):
+    def __init__(self, torrent):
+        if isinstance(torrent, basestring):
+            with open(torrent, "rb+") as fh:
+                self.contents = bencode.bdecode(fh.read())
+        else:
+            self.contents = bencode.bdecode(torrent.read())
+
+    def add_tracker(self, tracker):
+        self.contents['announce-list'].append(tracker)
+
+    @property
+    def name(self):
+        return self.contents['info']['name']
+
+    @property
+    def main_tracker(self):
+        return self.contents['announce']
+
+    @property
+    def comment(self):
+        return self.contents['comment']
+
+    @property
+    def files(self):
+        return self.contents['info']['files']
+
+    @property
+    def trackers(self):
+        return self.contents['announce-list']
+
+    def __str__(self):
+        return bencode.bencode(self.contents)
+
+def parse_options():
+    parser = argparse.ArgumentParser(description="Add the specified tracker URL to a torrent file.")
+    parser.add_argument('-v', '--verbose', action='store_true', help="Verbose output.")
+    parser.add_argument('torrent', metavar='TORRENT', action='store', help="Torrent to add tracer(s) to.")
+    parser.add_argument("trackers", metavar="TRACKER", nargs="+", help="Tracker(s) to add to torrent")
+    options = parser.parse_args()
+
+    return options
+
+def printv(msg):
+    if options.verbose:
+        print msg
+
+def main():
+    global options
+    options = parse_options()
+
+    printv("Loading torrent...")
+    torrent = BitTorrentFile(options.torrent)
+
+    printv("Adding trackers...")
+    for tracker in options.trackers:
+        torrent.trackers.append(tracker)
+
+    printv("Writing file...")
+    with open(options.torrent, "wb") as fh:
+        fh.write(str(torrent))
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(">> Caught user interrupt. Exiting...")
+
+# vim:set ft=python tw=100:
