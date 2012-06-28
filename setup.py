@@ -12,7 +12,7 @@ config = {
     'author'       : 'Brandon Sandrowicz',
     'author_email' : 'brandon@sandrowicz.org',
     'version'      : '0.1',
-    'packages'     : [],
+    'packages'     : [ 'bttools' ],
     'scripts'      : glob('scripts/*'),
     'name'         : 'bttools',
     'test_suite'   : '',
