@@ -1,0 +1,159 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+
+import argparse
+import datetime
+import os
+import sys
+
+import bencode
+
+from bttools import BitTorrentFile
+
+def parse_options():
+    parser = argparse.ArgumentParser(description="Display information extracted from torrent file.")
+    parser.add_argument('torrent', metavar='TORRENT', action='store', help="Torrent to show.")
+    parser.add_argument('--profiles', action='store_true', help='Display profiles.')
+    parser.add_argument('--files',    action='store_true', help='Display file information.')
+    parser.add_argument('--trackers', action='store_true', help='Display trackers.')
+    parser.add_argument('--no-main-info', dest='main_info', action='store_false', default=True, help="Do not display main info.")
+    parser.add_argument('--main-info',    dest='main_info', action='store_true',  default=True, help="Display main info.")
+    options = parser.parse_args()
+
+    return options
+
+def print_heading(line):
+    print(line)
+    print("=" * len(line))
+
+def display_list(arr, start, filter=None):
+    if len(arr) < 1:
+        print(start + '--')
+        return
+    if filter:
+        arr = map(filter, arr)
+    print(start + arr[0])
+    for item in arr[1:]:
+        print(" " * len(start) + item)
+
+def fmtdate(d, fmt="%Y-%m-%d %H:%M:%S"):
+    return datetime.datetime.fromtimestamp(d).strftime(fmt)
+
+def display_kvpairs(pairs):
+    k_max = max(len(k) for k,v in pairs)
+    fmt   = "%%-%d.%ds: %%s" % (k_max, k_max)
+    for k,v in pairs:
+        if isinstance(v, list):
+            display_list(v, fmt % (k, ""))
+            continue
+
+        print(fmt % (k,v))
+
+def format_filesize(size, size_idx=0, fmt="%s %s"):
+    """ Generate a human-readable file size """
+    pretty_size = size
+    sizes = [ 'B', 'KB', 'MB', 'GB', 'TB' ]
+    while pretty_size > 1024:
+        pretty_size /= 1024
+        size_idx += 1
+    return fmt % (pretty_size, sizes[size_idx])
+
+def display_file_info(torrent):
+    """ Display information on the files in a torrent. """
+    print_heading("File Info")
+    files    = torrent.contents['info'].get('files', [])
+    fileinfo = []
+    durations= torrent.contents['info'].get('file-duration', None)
+    profiles = torrent.contents['info'].get('profiles', None)
+    media    = torrent.contents['info'].get('file-media', None)
+    for i,file in enumerate(files):
+        finfo = {
+            'size'    : format_filesize(file['length']),
+            'filename': file['path'][0],
+        }
+
+        finfo['duration'] = durations[i] if durations else None
+
+        if profiles and media and media[i] >= 0:
+            finfo['profile'] = profiles[media[i]]
+        else:
+            finfo['profile'] = None
+
+        fileinfo.append(finfo)
+
+    lines = []
+    for info in fileinfo:
+        line  = info['filename']
+        if 'size' in info and info['size']:
+            line += " (%s)" % info['size']
+        if 'duration' in info and info['duration']:
+            line += " (%s)" % format_duration(info['duration'])
+        lines.append(line)
+
+    lines.sort()
+    for line in lines:
+        print(line)
+
+    return
+
+def display_main_info(torrent):
+    """ Display the main torrent information. """
+    print_heading("Main Info")
+
+    creation_date = torrent.contents.get('creation date', None)
+    if creation_date:
+        creation_date = fmtdate(creation_date)
+
+    display_kvpairs([
+        ('Name',          torrent.contents['info']['name']),
+        ('Created By',    torrent.contents.get('created by', None)),
+        ('Creation Date', creation_date),
+        ('Comment',       torrent.contents.get('comment', None)),
+        ('Encoding',      torrent.contents.get('encoding', None)),
+    ])
+
+def display_tracker_info(torrent):
+    """ Display tracker meta info from torrent. """
+    print_heading("Tracker Info")
+    display_kvpairs([
+        ('Main Tracker', torrent.contents.get('announce', None)),
+        ('Tracker List', torrent.contents.get('announce-list', [])),
+    ])
+
+def format_duration(seconds):
+    minutes, seconds = divmod(seconds, 60)
+    return "%sm %ss" % (minutes, seconds)
+
+def display_profile_info(torrent):
+    """ Display profiles dict from torrent. """
+    print_heading("Profiles")
+    for i,profile in enumerate(torrent.contents['info'].get('profiles', []), 1):
+        print("\n-- Profile #%d --" % i)
+        display_kvpairs(profile.items())
+
+def main():
+    options = parse_options()
+    torrent = BitTorrentFile(options.torrent)
+
+    display_main_info(torrent)
+
+    if options.trackers:
+        print('')
+        display_tracker_info(torrent)
+
+    if options.files:
+        print('')
+        display_file_info(torrent)
+
+    if options.profiles:
+        print('')
+        display_profile_info(torrent)
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(">> Caught user interrupt. Exiting...")
+
+# vim:set ft=python tw=100:
