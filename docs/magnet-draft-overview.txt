@@ -1,0 +1,249 @@
+-----------
+MAGNET v0.1 Created 2002-06-12; Revised 2002-06-17
+Gordon Mohr gojomo@bitzi.com
+
+MAGNET is a work-in-progress URI specification, and collection
+of standard practices/implementing code to allow a website to
+seamlessly integrate with features made available by local
+utility programs. In one way, it could be thought of as a
+vendor- and project-neutral generalization of the "freenet:"
+and "ed2k:" URI-schemes used by the Freenet and EDonkey2000
+peer-to-peer networks, respectively.
+
+MAGNET is not really an acronym for anything -- simply a name
+chosen to conjure up nice imagery of client-side apps connecting
+themselves, magnet-like, to websites where they can offer extra
+features, and of things that people want being pulled towards
+them. (Perhaps there can be a contest to make up an after-the-fact 
+acronym for it.)
+
+Activating such URIs in a browser will bring up a web page
+listing all options provided by locally-available applications
+(like P2P clients) -- the local applications control this
+display by making javascript available, via a local port/mini-
+HTTP-server, which renders their own areas within this options
+page. Clicking those options does whatever the local app wants
+-- search, explain, download, verify, whatever. (The
+specification only concerns the passing of parameters, and
+display of options, not the universe of potential user actions.)
+
+MAGNET URIS, ILLUSTRATED BY EXAMPLE:
+
+(1)
+
+  magnet:?xt=urn:sha1:YNCKHTQCWBTRNJIV4WNAE52SJUQCZO5C
+
+meaning: show me options pertaining to the "exact topic" (xt)
+given by the supplied URI (specifically, an URN)
+
+(2)
+
+  magnet:?xt=urn:sha1:YNCKHTQCWBTRNJIV4WNAE52SJUQCZO5C&dn=Great+Speeches+-+Martin+Luther+King+Jr.+-+I+Have+A+Dream.mp3
+
+meaning: show me options about this exact topic, but use
+the included (unverified) "display name" for user convenience
+
+(3)
+
+  magnet:?kt=martin+luther+king+mp3
+
+meaning: show me options about the "keyword topic" (kt)
+given by the string
+
+(4)
+
+  magnet:?xt.1=urn:sha1:YNCKHTQCWBTRNJIV4WNAE52SJUQCZO5C&xt.2=urn:sha1:TXGCZQTH26NL6OUQAJJPFALHG2LTGBC7
+
+meaning: show me options about the two exact topics given
+
+(5)
+
+  magnet:?mt=http://weblog.foo/all-my-favorites.rss
+
+meaning: show me the options for the "manifest topic" (mt)
+fetchable via the given URI. This could also be an URN.
+Manifest topics include lists of other items.
+
+(In all of the above, to be perfectly conformant with applicable
+specs, the ':' characters should be escaped as '%3A'. Most URI
+contexts seems to tolerate without misinterpretation unescaped
+colons, though, so I have left them unescaped in this draft for
+readability.)
+
+NOTES ABOUT THE URI FORMAT:
+
+  - Yes, it looks a little strange to have the "?" right after
+    the ":", but by my reading of the relevant URL/URI RFCs,
+    that fits the recommended common URI syntax well. (It also
+    meshes nicely with the way the parameters are passed on to
+    individual local apps.)
+
+  - FYI, EDonkey URIs violate many provisos of RFCs 1738 and
+    2396, including the use of "//" at the front of a non-
+    hierarchical namespace and the use of illegal/disfavored
+    (when not escaped) characters
+
+  - Parameter names and values should officially be www-
+    formencoded, just like HTTP web form GET submissions in the
+    query-string, though in practice some characters that a
+    strict reading of HTML-specs/RFC1738 would suggest should be
+    encoded (like '.' and ':') seem not to be encoded.
+
+  - The prefix 'x.' is reserved for application-specific new
+    parameter experimentation. Any parameters not beginning 'x.'
+    are only to be defined by official MAGNET specifications.
+
+  - Other potential parameters might include a "fallback-
+    location" for content that can't be found via P2P, P2P-
+    system-specific identifiers (ed2k, sig2dat, freenet), other
+    topic qualifiers ("length"), etc. These remain to be
+    designed; comments wanted.
+
+IMPLEMENTATION
+
+It is usually possible to have these URIs work by having
+javascript in the originating page capture clicks on such URIs
+-- without any prior browser/platform-specific installation.
+Local apps just have to listen for local requests to provide
+options. 
+
+Specifically, each local app that wants to be given the chance
+to offer up options for MAGNET URIs should open a mini-HTTP-
+listener on the lowest available port, in the range 45100-45199.
+If not in the first 5 positions (45100-45104), they should also
+periodically check to see if higher positions open up, and if
+so, move downward with their MAGNET-listening service.
+
+Such MAGNET-listening services should only accept inbound
+connections from the local machine.
+
+The common Javascript and HTML templates which capture clicks on
+"magnet:" URIs -- or the "magnet:" URI handling code installed
+in the browser- and platform- specific manner -- discovers all
+local options via GETs against local URLs including:
+
+   http://127.0.0.1:451XX/magnet10/badge.img
+   http://127.0.0.1:451XX/magnet10/canHandle.img[?params]
+   http://127.0.0.1:451XX/magnet10/options.js[?params]
+   http://127.0.0.1:451XX/magnet10/default.js[?params]
+   http://127.0.0.1:451XX/magnet10/closeNotify[?port]
+   http://127.0.0.1:451XX/magnet10/pause
+
+[VERSION NOTE: This technique of advertising availability 
+and desired UI by supploying javascript may be superseded
+by supplying either raw HTML, or answering API calls as if 
+by something like XML-RPC, if those options can be made as 
+general and robust as the javascript approach.]
+
+More details about what participating applications should return
+for these requests is as follows:
+
+  /magnet10/badge.img
+
+  Return a gif/jpeg/png, 90x30, representing your program. Any
+  server not returning such a valid logo will be considered to
+  be something other than a MAGNET-compliant server. Web pages
+  can poll for these images to see if services are available,
+  and peer MAGNET services can poll for these images to find
+  their port-neighbors (or see when they go away).
+
+  /magnet10/canHandle.img[?params]
+
+  Given the params -- which are the same as the contents of a
+  "magnet:" URI, after the '?' -- if your program can offer any
+  operations for those parameters, return a 90x30 image. If you
+  cannot offer any useful options for those paramters, return a
+  NOT-FOUND or other error. The test of whether or not the
+  program can handle the params should not take excessively long
+  or trigger signficant CPU/network traffic.
+
+  /magnet10/options.js[?params]
+
+  Given the params, lifted from a "magnet:" URI, display
+  identifying info about your program and any relevant
+  links/forms/etc. showing what is possible for those
+  parameters. You have total control over what is rendered,
+  via Javascript document.write() commands, but keep in mind
+  the program's options may be rendered in a page in line
+  with other programs' options as well. The assembly of
+  available options and relevant graphics should not trigger
+  significant CPU/network traffic or take a long time; such
+  costly actions should only be undertaken after an intentional
+  user choice.
+  
+  The variable 'magnetCurrentSlot' will be set to the 
+  relative port (eg 0-99) this code came from, before it
+  is run. The variables 'magnetOptionsPreamble' and 
+  'magnetOptionsPostamble' will contain strings the 
+  options code should emit before and after its custom
+  HTML. If successful in rendering any information at
+  all, the variable 'magnetOptionsPollSuccesses' should
+  be incremented by 1.
+
+  /magnet10/default.js[?params]
+
+  Given the params, lifted from a "magnet:" URI, perform the
+  programs' "default" action and return javascript which renders
+  an indication this has occurred, and perhaps offers other
+  options. The default action should not be excessively taxing
+  on the local machine or the network, at least not beyond
+  common user expectations. (For example, it is acceptable for a
+  Gnutella servent to initiate a regular search as its default
+  action.) If no default action makes sense, just return the
+  same javascript as for options.js.
+
+  /magnet10/closeNotify[?port]
+
+  Parameter port will be a port number lower than the port this
+  request is delivered to. It indicates that the server on that
+  port is going through an orderly shutdown. Server may report
+  any success (2xx) code to indicate that it plans to relocate
+  up to the given port, or any failure code (4xx/5xx) if it
+  plans to stay put.
+
+  /magnet10/pause
+
+  MAGNET service should keep the requestor waiting for 250ms,
+  then return an error/empty content-body. (Javascript has
+  no truly idle wait -- but making an inline request for a 
+  resource from a socket that doesn't answer, or only answers 
+  after a delay, is almost as good.)
+
+A MAGNET service going through an orderly shutdown should
+generate closeNotify requests to each port number higher than
+itself, one at a time in sequence, until it either gets back a
+success code or receives 5 "unable to connects" (eg no
+listener).
+
+SUPPORTING CODE
+
+Javascript and HTML suitable for implementing the "magnet:" URI-
+catching and standardized local probing/options-display will be
+available under BSD/LGPL and other free licenses. Helpful MAGNET
+GIFs will be available under BSD/LGPL or as public- domain
+content.
+
+An example MAGNET-compliant application or two in Java, based on
+the free, compact Jetty HTTP server, will be available.
+(Probable apps: a no-op magnet service that just displays its
+own existence, and a "LocalLocator" which watches some set of
+local HD directories and tells you if the passed-in topic
+matches files you already have.)
+
+OTHER / FUTURE
+
+Any application which conforms to the published MAGNET
+specifications may use the term "MAGNET-capable" or
+"MAGNET-compliant" to describe its compliance. However,
+no specific MAGNET-capable or potentially MAGNET-using
+software called MAGNET is known to exist, or planned.
+Nor would it be a good idea -- it would step on the
+implicit trademark of "MAGNET" for a generic, standard
+browser-to-local-app communication facility.
+
+Future revisions may offer additional facilities for 
+flexibly embedding local MAGNET options directly into 
+remote website UIs -- so that via DHTML/etc, a list of
+options for a URI could appear inline with main content,
+not on a separate page. 
+
