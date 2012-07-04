@@ -13,4 +13,5 @@ __license__   = 'MIT'
 
 __version__   = '0.1'
 
-from .core import BitTorrentFile
+from .core   import BitTorrentFile
+from .magnet import MagnetURI
