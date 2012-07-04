@@ -1,7 +1,7 @@
 bttools
 =======
 
-A suite of command-line tools for dealing with .torrent file.
+A suite of command-line tools for dealing with torrent files and magnet uris.
 
 Requirements
 ============
